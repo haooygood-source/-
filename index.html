@@ -1,9 +1,7 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-
 <title>Bubble Shooter</title>
 
 <style>
@@ -11,72 +9,68 @@
 body{
 margin:0;
 background:white;
-text-align:center;
 font-family:sans-serif;
-touch-action:manipulation;
+text-align:center;
+overflow:hidden;
 }
 
+h2{margin:10px;}
+
 canvas{
-background:white;
-margin-top:10px;
+background:#f5f5f5;
 border-radius:10px;
-box-shadow:0 5px 15px rgba(0,0,0,0.3);
-max-width:95vw;
+touch-action:none;
 }
 
 #score{
 font-size:20px;
-margin:10px;
+margin-bottom:6px;
 }
 
 #proposal{
 display:none;
-margin-top:20px;
-position:relative;
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+text-align:center;
+background:white;
+padding:40px;
+border-radius:20px;
+box-shadow:0 0 20px rgba(0,0,0,0.15);
 }
 
 button{
-
-padding:12px 24px;
-font-size:18px;
+font-size:22px;
+padding:12px 25px;
+margin:10px;
 border:none;
 border-radius:10px;
-margin:10px;
 cursor:pointer;
-transition:all 0.1s;
-
+transition:transform .1s;
 }
 
-button:active{
-transform:scale(0.9);
-}
+button:active{transform:scale(.9);}
 
 #yes{
-background:#ff6fa5;
+background:#ff5fa2;
 color:white;
 }
 
 #no{
 background:#ccc;
-position:relative;
+position:absolute;
 }
 
 .heart{
-position:fixed;
-font-size:26px;
-animation:float 3s linear forwards;
-pointer-events:none;
+position:absolute;
+font-size:30px;
+animation:float 2s linear forwards;
 }
 
 @keyframes float{
-0%{
-transform:translateY(0) scale(1);
-opacity:1;
-}
-100%{
-transform:translateY(-200px) scale(1.8);
-opacity:0;
-}
+0%{opacity:1;transform:translateY(0)}
+100%{opacity:0;transform:translateY(-200px)}
 }
 
 </style>
@@ -84,17 +78,15 @@ opacity:0;
 
 <body>
 
-<h2>Bubble Shooter</h2>
-<div id="score">점수 0 / 1004</div>
+<h2 id="title">Bubble Shooter</h2>
+<div id="score">Score : 0</div>
 
-<canvas id="game" width="360" height="500"></canvas>
+<canvas id="game"></canvas>
 
 <div id="proposal">
-<h2>나랑 사귈래?</h2>
-
+<h1>나랑 사귈래?</h1>
 <button id="yes">예</button>
 <button id="no">아니오</button>
-
 </div>
 
 <script>
@@ -102,40 +94,42 @@ opacity:0;
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-const size=36
-const rows=8
-const cols=10
+let W=Math.min(window.innerWidth,500)
+let H=Math.min(window.innerHeight*0.7,650)
 
-const colors=[
-"#ff6fa5",
-"#6fc3ff",
-"#ffd166",
-"#8aff8a"
-]
+canvas.width=W
+canvas.height=H
+
+const R=16
+const ROWS=10
+const COLS=Math.floor(W/(R*2))
+
+const colors=["#ff6b9d","#6bcBff","#ffd93d","#6bff95","#b06bff"]
+
+let grid=[]
+let score=0
+let shot=null
+let gameOver=false
+
+let angle=-Math.PI/2
+
+let currentColor=randomColor()
+let nextColor=randomColor()
 
 function randomColor(){
 return colors[Math.floor(Math.random()*colors.length)]
 }
 
-let grid=[]
-let shot=null
-let score=0
+function init(){
 
-const shooter={
-x:180,
-y:470,
-current:randomColor(),
-next:randomColor()
-}
-
-for(let r=0;r<rows;r++){
+for(let r=0;r<ROWS;r++){
 
 grid[r]=[]
 
-for(let c=0;c<cols;c++){
+for(let c=0;c<COLS;c++){
 
 if(r<4){
-grid[r][c]=randomColor()
+grid[r][c]={color:randomColor()}
 }else{
 grid[r][c]=null
 }
@@ -144,102 +138,99 @@ grid[r][c]=null
 
 }
 
-function draw(){
+}
 
-ctx.clearRect(0,0,360,500)
+init()
 
-for(let r=0;r<rows;r++){
-for(let c=0;c<cols;c++){
-
-const color=grid[r][c]
-
-if(color){
-
-let x=c*size+size/2
-let y=r*size+size/2
-
+function drawBubble(x,y,color){
 ctx.beginPath()
-ctx.arc(x,y,16,0,Math.PI*2)
+ctx.arc(x,y,R,0,Math.PI*2)
 ctx.fillStyle=color
 ctx.fill()
+}
+
+function draw(){
+
+ctx.clearRect(0,0,W,H)
+
+for(let r=0;r<ROWS;r++){
+for(let c=0;c<COLS;c++){
+
+let b=grid[r][c]
+
+if(b){
+
+drawBubble(
+c*R*2+R,
+r*R*2+R,
+b.color)
 
 }
 
 }
 }
-
-ctx.beginPath()
-ctx.arc(shooter.x,shooter.y,16,0,Math.PI*2)
-ctx.fillStyle=shooter.current
-ctx.fill()
-
-ctx.beginPath()
-ctx.arc(shooter.x+30,shooter.y+5,10,0,Math.PI*2)
-ctx.fillStyle=shooter.next
-ctx.fill()
 
 if(shot){
+drawBubble(shot.x,shot.y,shot.color)
+}
+
+drawBubble(W/2,H-40,currentColor)
+
+drawAim()
+
+}
+
+function drawAim(){
+
+ctx.strokeStyle="rgba(0,0,0,0.4)"
+ctx.setLineDash([6,6])
 
 ctx.beginPath()
-ctx.arc(shot.x,shot.y,16,0,Math.PI*2)
-ctx.fillStyle=shot.color
-ctx.fill()
+ctx.moveTo(W/2,H-40)
+
+let lx=W/2+Math.cos(angle)*160
+let ly=H-40+Math.sin(angle)*160
+
+ctx.lineTo(lx,ly)
+ctx.stroke()
+
+ctx.setLineDash([])
 
 }
 
-}
+function shoot(){
 
-function shoot(e){
-
-if(shot) return
-
-const rect=canvas.getBoundingClientRect()
-
-let tx
-let ty
-
-if(e.touches){
-tx=e.touches[0].clientX-rect.left
-ty=e.touches[0].clientY-rect.top
-}else{
-tx=e.clientX-rect.left
-ty=e.clientY-rect.top
-}
-
-let dx=tx-shooter.x
-let dy=ty-shooter.y
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-dx/=len
-dy/=len
+if(shot||gameOver)return
 
 shot={
-x:shooter.x,
-y:shooter.y,
-dx:dx*6,
-dy:dy*6,
-color:shooter.current
+x:W/2,
+y:H-40,
+dx:Math.cos(angle)*8,
+dy:Math.sin(angle)*8,
+color:currentColor
 }
 
+currentColor=nextColor
+nextColor=randomColor()
+
 }
-
-canvas.addEventListener("click",shoot)
-
-canvas.addEventListener("touchstart",function(e){
-e.preventDefault()
-shoot(e)
-})
 
 function update(){
+
+if(gameOver)return
 
 if(shot){
 
 shot.x+=shot.dx
 shot.y+=shot.dy
 
-if(shot.y<0){
+if(shot.x<R||shot.x>W-R){
+shot.dx*=-1
+}
+
+if(shot.y<R){
 attachBubble()
+return
 }
 
 checkCollision()
@@ -252,119 +243,191 @@ requestAnimationFrame(update)
 
 }
 
+function attachBubble(){
+
+let col=Math.floor(shot.x/(R*2))
+let row=Math.floor(shot.y/(R*2))
+
+if(row<0)row=0
+if(row>=ROWS)row=ROWS-1
+
+grid[row][col]={color:shot.color}
+
+checkMatch(row,col)
+
+shot=null
+
+}
+
 function checkCollision(){
 
-for(let r=0;r<rows;r++){
-for(let c=0;c<cols;c++){
+for(let r=0;r<ROWS;r++){
+for(let c=0;c<COLS;c++){
 
-if(grid[r][c]){
+let b=grid[r][c]
+if(!b)continue
 
-let x=c*size+size/2
-let y=r*size+size/2
+let bx=c*R*2+R
+let by=r*R*2+R
 
-let d=Math.hypot(x-shot.x,y-shot.y)
+let dx=shot.x-bx
+let dy=shot.y-by
 
-if(d<32){
+if(Math.sqrt(dx*dx+dy*dy)<R*2){
 attachBubble()
 return
 }
 
 }
-
 }
-}
-
-}
-
-function attachBubble(){
-
-let c=Math.floor(shot.x/size)
-let r=Math.floor(shot.y/size)
-
-if(r<0) r=0
-
-grid[r][c]=shot.color
-
-shot=null
-
-checkMatch(r,c)
-
-shooter.current=shooter.next
-shooter.next=randomColor()
 
 }
 
 function checkMatch(r,c){
 
-let color=grid[r][c]
-
+let color=grid[r][c].color
 let stack=[[r,c]]
 let visited={}
-let group=[]
+let match=[]
 
 while(stack.length){
 
-let [cr,cc]=stack.pop()
+let [rr,cc]=stack.pop()
+let key=rr+"_"+cc
 
-let key=cr+"_"+cc
-
-if(visited[key]) continue
-
+if(visited[key])continue
 visited[key]=true
 
-if(grid[cr] && grid[cr][cc]==color){
+let b=grid[rr][cc]
+if(!b||b.color!=color)continue
 
-group.push([cr,cc])
+match.push([rr,cc])
 
 let dirs=[[1,0],[-1,0],[0,1],[0,-1]]
 
-dirs.forEach(d=>{
-stack.push([cr+d[0],cc+d[1]])
-})
+for(let d of dirs){
 
+let nr=rr+d[0]
+let nc=cc+d[1]
+
+if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS){
+stack.push([nr,nc])
 }
 
 }
 
-if(group.length>=3){
-
-group.forEach(p=>{
-grid[p[0]][p[1]]=null
-})
-
-score+=group.length*50
-
-if(score>1004) score=1004
-
-document.getElementById("score").innerText="점수 "+score+" / 1004"
-
 }
+
+if(match.length>=3){
+
+for(let m of match){
+grid[m[0]][m[1]]=null
+}
+
+score+=match.length*60
+
+document.getElementById("score").innerText="Score : "+score
 
 if(score>=1004){
-document.getElementById("proposal").style.display="block"
+endGame()
 }
 
 }
 
-update()
+}
 
-const noBtn=document.getElementById("no")
+function endGame(){
+
+gameOver=true
+
+canvas.style.display="none"
+document.getElementById("score").style.display="none"
+document.getElementById("title").style.display="none"
+
+let proposal=document.getElementById("proposal")
+proposal.style.display="block"
+
+initNoButton()
+
+}
+
+canvas.addEventListener("mousemove",e=>{
+
+let rect=canvas.getBoundingClientRect()
+
+let mx=e.clientX-rect.left
+let my=e.clientY-rect.top
+
+angle=Math.atan2(my-(H-40),mx-(W/2))
+
+})
+
+canvas.addEventListener("click",shoot)
+
+canvas.addEventListener("touchmove",e=>{
+
+let rect=canvas.getBoundingClientRect()
+
+let mx=e.touches[0].clientX-rect.left
+let my=e.touches[0].clientY-rect.top
+
+angle=Math.atan2(my-(H-40),mx-(W/2))
+
+})
+
+canvas.addEventListener("touchstart",shoot)
+
+function heart(){
+
+let h=document.createElement("div")
+h.className="heart"
+h.innerText="💖"
+
+h.style.left=Math.random()*window.innerWidth+"px"
+h.style.top=window.innerHeight+"px"
+
+document.body.appendChild(h)
+
+setTimeout(()=>h.remove(),2000)
+
+}
+
+document.getElementById("yes").onclick=()=>{
+setInterval(heart,200)
+}
+
+const no=document.getElementById("no")
+const proposal=document.getElementById("proposal")
+
+function initNoButton(){
+
+let maxX=proposal.offsetWidth-no.offsetWidth
+let maxY=proposal.offsetHeight-no.offsetHeight
+
+no.style.left=maxX/2+"px"
+no.style.top=maxY/2+"px"
+
+}
 
 function moveNo(x,y){
 
-const rect=noBtn.getBoundingClientRect()
+let rect=no.getBoundingClientRect()
 
-const dx=x-(rect.left+rect.width/2)
-const dy=y-(rect.top+rect.height/2)
+let dx=x-(rect.left+rect.width/2)
+let dy=y-(rect.top+rect.height/2)
 
-const dist=Math.sqrt(dx*dx+dy*dy)
+let dist=Math.sqrt(dx*dx+dy*dy)
 
 if(dist<120){
 
-noBtn.style.position="fixed"
+let maxX=proposal.offsetWidth-no.offsetWidth
+let maxY=proposal.offsetHeight-no.offsetHeight
 
-noBtn.style.left=Math.random()*(window.innerWidth-100)+"px"
-noBtn.style.top=Math.random()*(window.innerHeight-50)+"px"
+let nx=Math.random()*maxX
+let ny=Math.random()*maxY
+
+no.style.left=nx+"px"
+no.style.top=ny+"px"
 
 }
 
@@ -374,39 +437,12 @@ document.addEventListener("mousemove",e=>{
 moveNo(e.clientX,e.clientY)
 })
 
-document.addEventListener("touchstart",e=>{
+document.addEventListener("touchmove",e=>{
 moveNo(e.touches[0].clientX,e.touches[0].clientY)
 })
 
-const yesBtn=document.getElementById("yes")
-
-yesBtn.addEventListener("click",showHearts)
-yesBtn.addEventListener("touchstart",showHearts)
-
-function showHearts(){
-
-for(let i=0;i<40;i++){
-
-setTimeout(()=>{
-
-const h=document.createElement("div")
-h.className="heart"
-h.innerHTML="❤️"
-
-h.style.left=Math.random()*window.innerWidth+"px"
-h.style.top=window.innerHeight+"px"
-
-document.body.appendChild(h)
-
-setTimeout(()=>h.remove(),3000)
-
-},i*80)
-
-}
-
-}
+update()
 
 </script>
-
 </body>
 </html>
